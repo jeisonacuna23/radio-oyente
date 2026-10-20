@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
 
     // CONFIGURACIÓN: Cambia esta IP por la de tu teléfono servidor
-    private static final String SERVER_IP = "192.168.0.107";
+    private static final String SERVER_IP = "127.0.0.1";
     private static final String STREAM_URL = "http://" + SERVER_IP + ":8000/";
     private static final String API_URL = "http://" + SERVER_IP + ":8080/api/status";
 
