@@ -1,9 +1,20 @@
-*.iml
-.gradle
-/local.properties
-/.idea
-.DS_Store
+# Archivos del servidor (no subir)
+audio_src/
+logs/
+*.db
+*.log
+*.pid
+*.state
+api.py
+icecast.xml
+
+# Archivos de las apps Android
+.gradle/
 build/
-/captures
-.externalNativeBuild
-.cxx
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/

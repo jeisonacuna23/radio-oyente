@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APKs
 
 on:
   push:
@@ -19,14 +19,29 @@ jobs:
         java-version: '17'
         cache: 'gradle'
         
-    - name: Dar permisos al wrapper
-      run: chmod +x gradlew
-      
-    - name: Compilar APK (Debug)
-      run: ./gradlew assembleDebug
-      
-    - name: Subir APK como artefacto
+    - name: Dar permisos a los wrappers
+      run: |
+        chmod +x app_oyente/gradlew
+        chmod +x app_transmisor/gradlew
+        
+    - name: Compilar App Oyente
+      run: |
+        cd app_oyente
+        ./gradlew assembleDebug
+        
+    - name: Compilar App Transmisor
+      run: |
+        cd app_transmisor
+        ./gradlew assembleDebug
+        
+    - name: Subir APK Oyente
       uses: actions/upload-artifact@v4
       with:
         name: RadioOyente-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: app_oyente/app/build/outputs/apk/debug/app-debug.apk
+        
+    - name: Subir APK Transmisor
+      uses: actions/upload-artifact@v4
+      with:
+        name: RadioTransmisor-APK
+        path: app_transmisor/app/build/outputs/apk/debug/app-debug.apk
