@@ -1,5 +1,6 @@
 package com.turadio.oyente;
 
+import android.content.ComponentName;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -7,7 +8,11 @@ import android.widget.Button;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
-import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.common.Player;
+import androidx.media3.session.MediaController;
+import androidx.media3.session.SessionToken;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -18,15 +23,14 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
-    // CONFIGURACIÓN: Cambia esta IP por la de tu teléfono servidor
     private static final String SERVER_IP = "127.0.0.1";
     private static final String STREAM_URL = "http://" + SERVER_IP + ":8000/";
     private static final String API_URL = "http://" + SERVER_IP + ":8080/api/status";
 
-    private ExoPlayer player;
     private Button btnPlayPause;
     private TextView tvNowPlaying;
-    private boolean isPlaying = false;
+    private MediaController mediaController;
+    private ListenableFuture<MediaController> controllerFuture;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -39,24 +43,45 @@ public class MainActivity extends AppCompatActivity {
         btnPlayPause = findViewById(R.id.btnPlayPause);
         tvNowPlaying = findViewById(R.id.tvNowPlaying);
 
-        player = new ExoPlayer.Builder(this).build();
-        MediaItem mediaItem = MediaItem.fromUri(STREAM_URL);
-        player.setMediaItem(mediaItem);
+        // Conectar con el Servicio en Segundo Plano
+        SessionToken sessionToken = new SessionToken(this, new ComponentName(this, PlaybackService.class));
+        controllerFuture = new MediaController.Builder(this, sessionToken).buildAsync();
+        
+        controllerFuture.addListener(() -> {
+            try {
+                mediaController = controllerFuture.get();
+                MediaItem mediaItem = MediaItem.fromUri(STREAM_URL);
+                mediaController.setMediaItem(mediaItem);
+                mediaController.prepare();
+                
+                // Escuchar cambios de estado para actualizar el botón
+                mediaController.addListener(new Player.Listener() {
+                    @Override
+                    public void onIsPlayingChanged(boolean isPlaying) {
+                        runOnUiThread(() -> {
+                            if (isPlaying) {
+                                btnPlayPause.setText("⏸ Pausar");
+                            } else {
+                                btnPlayPause.setText("▶ Reproducir");
+                            }
+                        });
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, MoreExecutors.directExecutor());
 
         btnPlayPause.setOnClickListener(v -> {
-            if (isPlaying) {
-                player.pause();
-                isPlaying = false;
-                btnPlayPause.setText("▶ Reproducir");
-            } else {
-                player.prepare();
-                player.play();
-                isPlaying = true;
-                btnPlayPause.setText("⏸ Pausar");
+            if (mediaController != null) {
+                if (mediaController.isPlaying()) {
+                    mediaController.pause();
+                } else {
+                    mediaController.play();
+                }
             }
         });
 
-        // Iniciar actualización del estado cada 5 segundos
         handler.post(updateStatusRunnable);
     }
 
@@ -104,9 +129,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (player != null) {
-            player.release();
-            player = null;
+        if (controllerFuture != null) {
+            MediaController.releaseFuture(controllerFuture);
         }
         handler.removeCallbacks(updateStatusRunnable);
         executor.shutdownNow();
