@@ -1,18 +1,14 @@
 package com.turadio.oyente;
 
-import android.content.ComponentName;
+import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.Player;
-import androidx.media3.session.MediaController;
-import androidx.media3.session.SessionToken;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import org.json.JSONArray;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -26,10 +22,11 @@ public class MainActivity extends AppCompatActivity {
 
     private Button btnPlayPause;
     private TextView tvNowPlaying;
-    private MediaController mediaController;
-    private ListenableFuture<MediaController> controllerFuture;
+    private WebView webViewPlayer;
     private String currentStreamUrl = "";
+    private boolean isPlaying = false;
 
+    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,74 +34,45 @@ public class MainActivity extends AppCompatActivity {
 
         btnPlayPause = findViewById(R.id.btnPlayPause);
         tvNowPlaying = findViewById(R.id.tvNowPlaying);
+        webViewPlayer = findViewById(R.id.webViewPlayer);
 
-        SessionToken sessionToken = new SessionToken(this, new ComponentName(this, PlaybackService.class));
-        controllerFuture = new MediaController.Builder(this, sessionToken).buildAsync();
-
-        controllerFuture.addListener(() -> {
-            try {
-                mediaController = controllerFuture.get();
-                mediaController.addListener(new Player.Listener() {
-                    @Override
-                    public void onIsPlayingChanged(boolean isPlaying) {
-                        runOnUiThread(() -> {
-                            if (isPlaying) btnPlayPause.setText("⏸ Pausar");
-                            else btnPlayPause.setText("▶ Reproducir");
-                        });
-                    }
-
-                    @Override
-                    public void onPlayerError(PlaybackException error) {
-                        runOnUiThread(() -> {
-                            tvNowPlaying.setText("ERROR: " + error.getErrorCodeName() + "\n" + error.getMessage());
-                        });
-                    }
-                });
-                
-                if (!currentStreamUrl.isEmpty()) {
-                    prepararReproductor();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }, MoreExecutors.directExecutor());
+        // Configurar el WebView para que se comporte como Chrome
+        WebSettings webSettings = webViewPlayer.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setMediaPlaybackRequiresUserGesture(false); // Permite autoplay
+        webSettings.setDomStorageEnabled(true);
+        
+        webViewPlayer.setWebViewClient(new WebViewClient());
+        webViewPlayer.setWebChromeClient(new WebChromeClient());
 
         btnPlayPause.setOnClickListener(v -> {
-            if (mediaController == null) {
-                tvNowPlaying.setText("El reproductor aún no está listo...");
+            if (currentStreamUrl.isEmpty()) {
+                tvNowPlaying.setText("Buscando señal...");
+                fetchStreamUrl();
                 return;
             }
-            
-            if (mediaController.isPlaying()) {
-                mediaController.pause();
+
+            if (isPlaying) {
+                webViewPlayer.evaluateJavascript("document.getElementById('audioPlayer').pause();", null);
+                isPlaying = false;
+                btnPlayPause.setText("▶ Reproducir");
+                tvNowPlaying.setText("En pausa");
             } else {
-                if (currentStreamUrl.isEmpty()) {
-                    tvNowPlaying.setText("Buscando señal...");
-                    fetchStreamUrl();
-                } else {
-                    prepararReproductor();
-                    mediaController.play();
-                    tvNowPlaying.setText("Conectando al audio...");
-                }
+                webViewPlayer.evaluateJavascript("document.getElementById('audioPlayer').play();", null);
+                isPlaying = true;
+                btnPlayPause.setText("⏸ Pausar");
+                tvNowPlaying.setText("Conectando al audio...");
             }
         });
 
         fetchStreamUrl();
     }
 
-    private void prepararReproductor() {
-        if (mediaController != null && !currentStreamUrl.isEmpty()) {
-            if (mediaController.getCurrentMediaItem() == null) {
-                // Forzamos el formato OGG y usamos la URL
-                MediaItem mediaItem = new MediaItem.Builder()
-                        .setUri(currentStreamUrl)
-                        .setMimeType(MimeTypes.AUDIO_OGG)
-                        .build();
-                
-                mediaController.setMediaItem(mediaItem);
-                mediaController.prepare();
-            }
-        }
+    private void loadAudioInWebView(String streamUrl) {
+        // Creamos un reproductor HTML5 oculto con la URL
+        String html = "<html><body><audio id='audioPlayer' src='" + streamUrl + "' preload='auto'></audio></body></html>";
+        webViewPlayer.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+        tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
     }
 
     private void fetchStreamUrl() {
@@ -129,13 +97,8 @@ public class MainActivity extends AppCompatActivity {
                     String streamUrl = jsonArray.getJSONObject(0).getString("url");
                     
                     if (!streamUrl.equals("vacio") && !streamUrl.isEmpty()) {
-                        // EL TRUCO: Cambiamos https:// por http://
-                        currentStreamUrl = streamUrl.replace("https://", "http://");
-                        
-                        runOnUiThread(() -> {
-                            tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
-                            prepararReproductor();
-                        });
+                        currentStreamUrl = streamUrl;
+                        runOnUiThread(() -> loadAudioInWebView(currentStreamUrl));
                     } else {
                         runOnUiThread(() -> tvNowPlaying.setText("Radio fuera de línea (Sin URL)"));
                     }

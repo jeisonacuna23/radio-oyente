@@ -21,7 +21,7 @@
         android:id="@+id/tvNowPlaying"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Desconectado"
+        android:text="Buscando señal..."
         android:textColor="#B3B3B3"
         android:textSize="18sp"
         android:gravity="center"
@@ -36,4 +36,12 @@
         android:textStyle="bold"
         android:backgroundTint="#1DB954"
         android:textColor="#FFFFFF"/>
+
+    <!-- Este es el mini-Chrome invisible que hará sonar la radio -->
+    <WebView
+        android:id="@+id/webViewPlayer"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:visibility="invisible" />
+
 </LinearLayout>
