@@ -53,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
                         });
                     }
 
-                    // ESTO NOS DIRÁ EL ERROR EXACTO
                     @Override
                     public void onPlayerError(PlaybackException error) {
                         runOnUiThread(() -> {
@@ -66,22 +65,27 @@ public class MainActivity extends AppCompatActivity {
                     prepararReproductor();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                final String errorMsg = e.getMessage();
+                runOnUiThread(() -> tvNowPlaying.setText("Fallo al iniciar el reproductor: " + errorMsg));
             }
         }, MoreExecutors.directExecutor());
 
         btnPlayPause.setOnClickListener(v -> {
-            if (mediaController != null) {
-                if (mediaController.isPlaying()) {
-                    mediaController.pause();
+            if (mediaController == null) {
+                tvNowPlaying.setText("El reproductor aún no está listo. Espera un segundo...");
+                return;
+            }
+            
+            if (mediaController.isPlaying()) {
+                mediaController.pause();
+            } else {
+                if (currentStreamUrl.isEmpty()) {
+                    tvNowPlaying.setText("Buscando señal...");
+                    fetchStreamUrl();
                 } else {
-                    if (currentStreamUrl.isEmpty()) {
-                        tvNowPlaying.setText("Buscando señal...");
-                        fetchStreamUrl();
-                    } else {
-                        prepararReproductor();
-                        mediaController.play();
-                    }
+                    prepararReproductor();
+                    mediaController.play();
+                    tvNowPlaying.setText("Conectando al audio...");
                 }
             }
         });
@@ -91,7 +95,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void prepararReproductor() {
         if (mediaController != null && !currentStreamUrl.isEmpty()) {
-            // Solo configuramos si no hay nada cargado para evitar reinicios
             if (mediaController.getCurrentMediaItem() == null) {
                 mediaController.setMediaItem(MediaItem.fromUri(currentStreamUrl));
                 mediaController.prepare();
@@ -123,7 +126,9 @@ public class MainActivity extends AppCompatActivity {
                     if (!streamUrl.equals("vacio") && !streamUrl.isEmpty()) {
                         currentStreamUrl = streamUrl;
                         runOnUiThread(() -> {
-                            tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
+                            if (tvNowPlaying.getText().toString().contains("Error") || tvNowPlaying.getText().toString().contains("Buscando")) {
+                                tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
+                            }
                             prepararReproductor();
                         });
                     } else {
