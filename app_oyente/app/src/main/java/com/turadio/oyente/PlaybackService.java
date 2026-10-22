@@ -21,16 +21,17 @@ public class PlaybackService extends MediaSessionService {
     public void onCreate() {
         super.onCreate();
 
-        // 1. Configurar OkHttp con tiempos de espera generosos
+        // 1. Configurar OkHttp con tiempos de espera generosos y redirecciones
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
                 .build();
 
         // 2. Crear la fuente de datos usando OkHttp y un User-Agent de Chrome
         OkHttpDataSource.Factory httpDataSourceFactory = new OkHttpDataSource.Factory(okHttpClient)
-                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                .setAllowCrossProtocolRedirects(true);
+                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
         DefaultDataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this, httpDataSourceFactory);
 
