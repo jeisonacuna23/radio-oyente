@@ -4,9 +4,9 @@ import android.content.ComponentName;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
@@ -65,14 +65,13 @@ public class MainActivity extends AppCompatActivity {
                     prepararReproductor();
                 }
             } catch (Exception e) {
-                final String errorMsg = e.getMessage();
-                runOnUiThread(() -> tvNowPlaying.setText("Fallo al iniciar el reproductor: " + errorMsg));
+                e.printStackTrace();
             }
         }, MoreExecutors.directExecutor());
 
         btnPlayPause.setOnClickListener(v -> {
             if (mediaController == null) {
-                tvNowPlaying.setText("El reproductor aún no está listo. Espera un segundo...");
+                tvNowPlaying.setText("El reproductor aún no está listo...");
                 return;
             }
             
@@ -96,7 +95,13 @@ public class MainActivity extends AppCompatActivity {
     private void prepararReproductor() {
         if (mediaController != null && !currentStreamUrl.isEmpty()) {
             if (mediaController.getCurrentMediaItem() == null) {
-                mediaController.setMediaItem(MediaItem.fromUri(currentStreamUrl));
+                // Forzamos el formato OGG y usamos la URL
+                MediaItem mediaItem = new MediaItem.Builder()
+                        .setUri(currentStreamUrl)
+                        .setMimeType(MimeTypes.AUDIO_OGG)
+                        .build();
+                
+                mediaController.setMediaItem(mediaItem);
                 mediaController.prepare();
             }
         }
@@ -124,11 +129,11 @@ public class MainActivity extends AppCompatActivity {
                     String streamUrl = jsonArray.getJSONObject(0).getString("url");
                     
                     if (!streamUrl.equals("vacio") && !streamUrl.isEmpty()) {
-                        currentStreamUrl = streamUrl;
+                        // EL TRUCO: Cambiamos https:// por http://
+                        currentStreamUrl = streamUrl.replace("https://", "http://");
+                        
                         runOnUiThread(() -> {
-                            if (tvNowPlaying.getText().toString().contains("Error") || tvNowPlaying.getText().toString().contains("Buscando")) {
-                                tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
-                            }
+                            tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
                             prepararReproductor();
                         });
                     } else {
