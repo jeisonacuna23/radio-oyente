@@ -4,8 +4,10 @@ import android.content.ComponentName;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
 import androidx.media3.session.SessionToken;
@@ -50,9 +52,16 @@ public class MainActivity extends AppCompatActivity {
                             else btnPlayPause.setText("▶ Reproducir");
                         });
                     }
+
+                    // ESTO NOS DIRÁ EL ERROR EXACTO
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
+                        runOnUiThread(() -> {
+                            tvNowPlaying.setText("ERROR: " + error.getErrorCodeName() + "\n" + error.getMessage());
+                        });
+                    }
                 });
                 
-                // Si la URL ya se descargó de Supabase, la preparamos aquí
                 if (!currentStreamUrl.isEmpty()) {
                     prepararReproductor();
                 }
@@ -82,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void prepararReproductor() {
         if (mediaController != null && !currentStreamUrl.isEmpty()) {
+            // Solo configuramos si no hay nada cargado para evitar reinicios
             if (mediaController.getCurrentMediaItem() == null) {
                 mediaController.setMediaItem(MediaItem.fromUri(currentStreamUrl));
                 mediaController.prepare();
@@ -114,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
                         currentStreamUrl = streamUrl;
                         runOnUiThread(() -> {
                             tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
-                            prepararReproductor(); // Lo preparamos apenas llega
+                            prepararReproductor();
                         });
                     } else {
                         runOnUiThread(() -> tvNowPlaying.setText("Radio fuera de línea (Sin URL)"));
