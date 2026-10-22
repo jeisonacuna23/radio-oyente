@@ -36,7 +36,6 @@ public class MainActivity extends AppCompatActivity {
         btnPlayPause = findViewById(R.id.btnPlayPause);
         tvNowPlaying = findViewById(R.id.tvNowPlaying);
 
-        // Conectar al Servicio en Segundo Plano
         SessionToken sessionToken = new SessionToken(this, new ComponentName(this, PlaybackService.class));
         controllerFuture = new MediaController.Builder(this, sessionToken).buildAsync();
 
@@ -52,6 +51,11 @@ public class MainActivity extends AppCompatActivity {
                         });
                     }
                 });
+                
+                // Si la URL ya se descargó de Supabase, la preparamos aquí
+                if (!currentStreamUrl.isEmpty()) {
+                    prepararReproductor();
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -64,19 +68,28 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     if (currentStreamUrl.isEmpty()) {
                         tvNowPlaying.setText("Buscando señal...");
-                        fetchStreamUrlAndPlay();
+                        fetchStreamUrl();
                     } else {
+                        prepararReproductor();
                         mediaController.play();
                     }
                 }
             }
         });
 
-        // Buscar la URL automáticamente al abrir la app
-        fetchStreamUrlAndPlay();
+        fetchStreamUrl();
     }
 
-    private void fetchStreamUrlAndPlay() {
+    private void prepararReproductor() {
+        if (mediaController != null && !currentStreamUrl.isEmpty()) {
+            if (mediaController.getCurrentMediaItem() == null) {
+                mediaController.setMediaItem(MediaItem.fromUri(currentStreamUrl));
+                mediaController.prepare();
+            }
+        }
+    }
+
+    private void fetchStreamUrl() {
         new Thread(() -> {
             try {
                 URL url = new URL(SUPABASE_URL);
@@ -101,10 +114,7 @@ public class MainActivity extends AppCompatActivity {
                         currentStreamUrl = streamUrl;
                         runOnUiThread(() -> {
                             tvNowPlaying.setText("Señal encontrada. Listo para reproducir.");
-                            if (mediaController != null) {
-                                mediaController.setMediaItem(MediaItem.fromUri(currentStreamUrl));
-                                mediaController.prepare();
-                            }
+                            prepararReproductor(); // Lo preparamos apenas llega
                         });
                     } else {
                         runOnUiThread(() -> tvNowPlaying.setText("Radio fuera de línea (Sin URL)"));
